@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from keras.models import Sequential,Model
+from keras.models import Model
 from keras.layers import Input, Dense, Activation, Reshape, Embedding
 from keras.layers import Concatenate, Dropout
 import matplotlib.pyplot as plt
@@ -9,7 +9,7 @@ from sklearn.manifold import TSNE
 import seaborn as sns
 import pickle
 from scipy.spatial import distance_matrix
-from scipy.stats import rankdata
+from scipy.stats import spearmanr
 
 
 def find_columns_to_check(df, nunique_th):
@@ -64,7 +64,7 @@ def build_model(x_train, columns_to_check):
     for c in columns_to_check:
       cat_emb_name= c +'_Embedding'
       no_of_unique_cat  = x_train[c].nunique()
-      embedding_size = 10
+      embedding_size = min(int(no_of_unique_cat/2),50)
       input_model = Input(shape=(1,),name = c+'_Input')
       output_model = Embedding(no_of_unique_cat, embedding_size,name=cat_emb_name)(input_model)
       output_model = Reshape(target_shape=(embedding_size,))(output_model)
@@ -92,9 +92,9 @@ def train_model(model, x_train, y_train, columns_to_check):
     for c in columns_to_check:
         input_train_list.append(x_train[c].values)
         #input_test_list.append(x_test[c].values)
-    history = model.fit(input_train_list, y_train, epochs= 10, batch_size=32, verbose=2)
+    history = model.fit(input_train_list, y_train, epochs=10, batch_size=32, verbose=2)
     #history = model.fit(input_train_list, y_train, validation_data=(input_test_list, y_test), epochs= 10, batch_size=32, verbose=2)
-    plot_loss(history)
+    #plot_loss(history)
     return
 
 
@@ -122,32 +122,58 @@ def plot_embeddings_tsne(vectors, col_name):
 
 def create_original_space_dist_matrix(label_dict):
     orig_values_vec = [[k] for k in label_dict.keys()]
-    euclidian_dist_matrix = distance_matrix(orig_values_vec, orig_values_vec)
-    return np.apply_along_axis(convert_to_ranked_dist, 1, euclidian_dist_matrix)
+    return distance_matrix(orig_values_vec, orig_values_vec)
 
 
 def create_embedding_space_dist_matrix(embedding):
-    euclidian_dist_matrix = distance_matrix(embedding, embedding)
-    return np.apply_along_axis(convert_to_ranked_dist, 1, euclidian_dist_matrix)
+    return distance_matrix(embedding, embedding)
 
 
-def convert_to_ranked_dist(arr):
-    return rankdata(arr).astype(int)
+def avg_spearmanr_for_two_dist_matrices(original_space_dist_matrix, embedding_space_dist_matrices):
+    spermanr_sums = 0
+    n = original_space_dist_matrix.shape[0]
+    for row in range(n):
+        orig_space_row = original_space_dist_matrix[row]
+        embedd_space_row = embedding_space_dist_matrices[row]
+        spermanr_sums += spearmanr(orig_space_row, embedd_space_row).correlation
+    return spermanr_sums / n
+
+
+def load_existing_embeddings_for_dev(emb_path, label_dict_path):
+    with open(emb_path, 'rb') as handle:
+        embeddings = pickle.load(handle)
+
+    with open(label_dict_path, 'rb') as handle:
+        label_dict = pickle.load(handle)
+
+    return embeddings, label_dict
+
+
+def main(dataset_path, target_col, target_map, nunique_th, corr_th):
+    data = pd.read_csv(dataset_path)
+    x_train, y_train, columns_to_check, label_dict = preprocess(data, nunique_th, target_col, target_map)
+    print(str(columns_to_check.values) + " have less than " + str(nunique_th) + " unique INT values, therefore they will be checked.")
+    print("Training embedding model start.")
+    model = build_model(x_train, columns_to_check)
+    train_model(model, x_train, y_train, columns_to_check)
+    embeddings = get_embeddings(model, columns_to_check)
+    print("Training embedding model end.")
+
+    for c in columns_to_check:
+        orig_dist_matrix = create_original_space_dist_matrix(label_dict[c])
+        embedd_dist_matrix = create_embedding_space_dist_matrix(embeddings[c])
+        score = avg_spearmanr_for_two_dist_matrices(orig_dist_matrix, embedd_dist_matrix)
+        print("\nFor the '{}' column, Spearman correlation score of the original values space and the embedding space is {}.".format(c,score))
+        if score > corr_th:
+            print("This means '{}' column is ordinal, you should use the original values or mapping.".format(c))
+        else:
+            print("This means '{}' column is nominal, you should use one hot encoding.".format(c))
 
 
 if __name__ == "__main__":
-    # data = pd.read_csv('./datasets/adult_all.csv')
-    # x_train, y_train, columns_to_check, label_dict = preprocess(data, 100, 'income', {'<=50K': 0, '>50K': 1})
-    # model = build_model(x_train, columns_to_check)
-    # train_model(model, x_train, y_train, columns_to_check)
-    # embeddings = get_embeddings(model, columns_to_check)
+    main('./datasets/adults_converted.csv', 'income', {'<=50K': 0, '>50K': 1}, 50, 0.7)
 
-    with open('embedding.pickle', 'rb') as handle:
-        embeddings_loaded = pickle.load(handle)
 
-    with open('label_dict.pickle', 'rb') as handle:
-        label_dict_loaded = pickle.load(handle)
 
-    orig_dist_matrix = create_original_space_dist_matrix(label_dict_loaded['capital-loss'])
-    embedd_dist_matrix = create_embedding_space_dist_matrix(embeddings_loaded['capital-loss'])
+
     print("")
