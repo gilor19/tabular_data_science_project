@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from keras.models import Model
-from keras.layers import Input, Dense, Activation, Reshape, Embedding
-from keras.layers import Concatenate, Dropout
+from keras.layers import Input, Dense, Activation, Reshape, Embedding, Concatenate, Dropout
+from keras.optimizers import Adam
+import tensorflow_addons as tfa
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import seaborn as sns
@@ -12,11 +13,20 @@ from scipy.spatial import distance_matrix
 from scipy.stats import spearmanr
 
 
-def find_columns_to_check(df, nunique_th):
+def check_high_percentage_of_category(df, col, threshold=0.7):
+    return (df[col].value_counts(normalize=True).iloc[0] > threshold)
+
+
+
+def find_columns_to_check(df, target_col_name, nunique_th):
     numeric_df = df.select_dtypes(include=[np.number])
-    under_th_df = numeric_df.loc[:, numeric_df.nunique() < nunique_th]
+    under_th_df = numeric_df.loc[:, numeric_df.nunique() <= nunique_th]
     only_int_df = under_th_df.loc[:, (under_th_df.fillna(-9999) % 1 == 0).all()]
-    return only_int_df.columns
+    more_than_two_values = only_int_df.loc[:, only_int_df.nunique() > 2]
+    if target_col_name in more_than_two_values:
+        return more_than_two_values.columns.drop(target_col_name)
+    else:
+        return more_than_two_values.columns
 
 
 def label_encoding(catcols, train_data):
@@ -30,7 +40,6 @@ def label_encoding(catcols, train_data):
 
 def plot_loss(history):
     plt.plot(history.history['loss'])
-    #plt.plot(history.history['val_loss'])
     plt.title('loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
@@ -38,15 +47,24 @@ def plot_loss(history):
     plt.show()
 
 
-def preprocess(df, nunique_th, target_col_name, target_col_map):
+def preprocess(df, nunique_th, target_col_name):
+    # remove columns with too many null values
+    columns_to_keep = df.columns[df.isna().mean() < 0.8]
+    df = df[columns_to_keep]
+
+
     # find columns to be tested
-    columns_to_check = find_columns_to_check(df, nunique_th)[:]
+    columns_to_check = find_columns_to_check(df, target_col_name, nunique_th)[:]
 
-    # drop_null
-    df = df.dropna()
+    for col in columns_to_check:
+        if check_high_percentage_of_category(df, col, threshold=0.7):
+            columns_to_check = columns_to_check.drop(col)
 
-    # convert target to 0,1
-    df[target_col_name] = df[target_col_name].map(target_col_map)
+            print("{} column was dropped due to values imbalance".format(col))
+
+    # drop rows with any null value
+    df = df.dropna(subset=columns_to_check)
+
 
     # split to x,y
     y_train = df[target_col_name]
@@ -78,22 +96,61 @@ def build_model(x_train, columns_to_check):
     output = Dense(256, kernel_initializer="uniform")(output)
     output = Activation('relu')(output)
     output= Dropout(0.3)(output)
-    output = Dense(1, activation='sigmoid')(output)
+    #output = Dense(1, activation='sigmoid')(output)
+    output = Dense(1, activation='linear')(output)
 
     model = Model(inputs=input_models, outputs=output)
-    model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
+    #model.compile(loss='binary_crossentropy', optimizer='Adam', metrics=['accuracy'])
+    model.compile(loss='mean_absolute_error', optimizer='Adam', metrics=tfa.metrics.r_square.RSquare())
 
     return model
 
 
 def train_model(model, x_train, y_train, columns_to_check):
     input_train_list = []
-    #input_test_list = []
     for c in columns_to_check:
         input_train_list.append(x_train[c].values)
-        #input_test_list.append(x_test[c].values)
     history = model.fit(input_train_list, y_train, epochs=10, batch_size=32, verbose=2)
-    #history = model.fit(input_train_list, y_train, validation_data=(input_test_list, y_test), epochs= 10, batch_size=32, verbose=2)
+    #plot_loss(history)
+    return
+
+
+def build_reg_model(x_train, columns_to_check):
+    input_models=[]
+    output_embeddings=[]
+    for c in columns_to_check:
+      cat_emb_name= c +'_Embedding'
+      no_of_unique_cat  = x_train[c].nunique()
+      embedding_size = min(int(no_of_unique_cat/2),50)
+      input_model = Input(shape=(1,),name = c+'_Input')
+      output_model = Embedding(no_of_unique_cat, embedding_size,name=cat_emb_name)(input_model)
+      output_model = Reshape(target_shape=(embedding_size,))(output_model)
+      input_models.append(input_model)
+      output_embeddings.append(output_model)
+
+    output = Concatenate()(output_embeddings)
+    output = Dense(1000, kernel_initializer="uniform")(output)
+    output = Activation('relu')(output)
+    output = Dropout(0.4)(output)
+    output = Dense(512, kernel_initializer="uniform")(output)
+    output = Activation('relu')(output)
+    output = Dropout(0.3)(output)
+    output = Dense(1, activation='sigmoid')(output)
+
+    model = Model(inputs=input_models, outputs=output)
+    model.compile(loss='mean_squared_error', optimizer='Adam',metrics=['mse'])
+    #tfa.metrics.r_square.RSquare()
+
+    return model
+
+
+def train_reg_model(model, x_train, y_train, columns_to_check):
+    max_log_y = np.max(np.log(y_train))
+    y_train_transformed = np.log(y_train) / max_log_y
+    input_train_list = []
+    for c in columns_to_check:
+        input_train_list.append(x_train[c].values)
+    history = model.fit(input_train_list, y_train_transformed, epochs=10, batch_size=32, verbose=2)
     #plot_loss(history)
     return
 
@@ -149,13 +206,13 @@ def load_existing_embeddings_for_dev(emb_path, label_dict_path):
     return embeddings, label_dict
 
 
-def main(dataset_path, target_col, target_map, nunique_th, corr_th):
+def main(dataset_path, target_col, nunique_th, corr_th):
     data = pd.read_csv(dataset_path)
-    x_train, y_train, columns_to_check, label_dict = preprocess(data, nunique_th, target_col, target_map)
+    x_train, y_train, columns_to_check, label_dict = preprocess(data, nunique_th, target_col)
     print(str(columns_to_check.values) + " have less than " + str(nunique_th) + " unique INT values, therefore they will be checked.")
     print("Training embedding model start.")
-    model = build_model(x_train, columns_to_check)
-    train_model(model, x_train, y_train, columns_to_check)
+    model = build_reg_model(x_train, columns_to_check)
+    train_reg_model(model, x_train, y_train, columns_to_check)
     embeddings = get_embeddings(model, columns_to_check)
     print("Training embedding model end.")
 
@@ -171,9 +228,5 @@ def main(dataset_path, target_col, target_map, nunique_th, corr_th):
 
 
 if __name__ == "__main__":
-    main('./datasets/adults_converted.csv', 'income', {'<=50K': 0, '>50K': 1}, 50, 0.7)
-
-
-
-
+    main('./datasets/video_games_sales_converted.csv', 'Global_Sales', 50, 0.7)
     print("")
