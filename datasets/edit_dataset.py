@@ -54,7 +54,7 @@ def convert_regression_to_classification(data, target_col, save_path=False):
 
 
 if __name__ == "__main__":
-    data = pd.read_csv('../datasets/converted_datasets/video_games_sales_converted_regression.csv')
+    data = pd.read_csv('converted_datasets/video_games_sales_converted.csv')
 
 
     convert_regression_to_classification(data, 'Global_Sales', save_path='../datasets/converted_datasets/video_games_sales_converted_classification.csv')
