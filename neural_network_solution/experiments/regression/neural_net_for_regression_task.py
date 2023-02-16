@@ -188,5 +188,5 @@ def main(dataset_path, target_col, nunique_th=50, corr_th=0.4):
 
 
 if __name__ == "__main__":
-    main('/home/gilor/Documents/msc/tabular_data_science_project/datasets/converted_datasets/video_games_sales_converted_regression.csv', 'Global_Sales')
+    main('/datasets/converted_datasets/video_games_sales_converted.csv', 'Global_Sales')
     print("")
