@@ -9,8 +9,11 @@ from scipy.spatial import distance_matrix
 from scipy.stats import spearmanr
 
 
-# def check_high_percentage_of_category(df, col, threshold=0.7):
-#     return (df[col].value_counts(normalize=True).iloc[0] > threshold)
+def convert_regression_to_classification(data, target_col, save_path=False):
+    data[target_col] = data[target_col].apply(lambda x: 1 if x > data[target_col].median() else 0)
+    if save_path:
+        data.to_csv(save_path, index=False)
+    return data
 
 
 def find_columns_to_check(df, target_col_name, nunique_th):

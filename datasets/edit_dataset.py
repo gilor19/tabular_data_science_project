@@ -46,13 +46,6 @@ def convert_str_cat_columns_to_numeric(df, cols_to_convert_randomly, cols_to_con
     return df
 
 
-def convert_regression_to_classification(data, target_col, save_path=False):
-    data[target_col] = data[target_col].apply(lambda x: 1 if x > data[target_col].median() else 0)
-    if save_path:
-        data.to_csv(save_path, index=False)
-    return data
-
-
 if __name__ == "__main__":
     data = pd.read_csv('converted_datasets/video_games_sales_converted.csv')
 
