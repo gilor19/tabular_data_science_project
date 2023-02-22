@@ -27,6 +27,6 @@ The 'genre' column was converted randomly.
 The 'Embarked' column was converted randomly.
 
 
-### Video Games Sales Dataset:
+### 4. Video Games Sales Dataset:
 The 'Platform' and 'Genre' columns were converted randomly.
 
