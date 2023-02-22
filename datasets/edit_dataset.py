@@ -47,7 +47,17 @@ def convert_str_cat_columns_to_numeric(df, cols_to_convert_randomly, cols_to_con
 
 
 if __name__ == "__main__":
-    data = pd.read_csv('converted_datasets/video_games_sales_converted.csv')
+    # example run
+    data = pd.read_csv('./original_datasets/adult.csv')
+    columns_to_convert_randomly: ['workclass', 'marital-status', 'occupation', 'relationship', 'native-country']
+    columns_to_convert_orderly = ['education']
+    order_map = {'education': {'Preschool': 0, '1st-4th': 1, '5th-6th': 2, '7th-8th': 3, '9th': 4, '10th': 5, '11th': 6,
+                               '12th': 7, 'HS-grad': 8, 'Prof-school': 9,'Assoc-acdm': 10, 'Assoc-voc': 11,
+                               'Some-college': 12, 'Bachelors': 13, 'Masters': 14, 'Doctorate': 15}}
+    target = 'income'
+    target_map = {'<=50K': 0, '>50K': 1}
+    save_path = './converted_datasets/adults_converted_example.csx'
+    convert_str_cat_columns_to_numeric(data, columns_to_convert_randomly, columns_to_convert_orderly, order_map,
+                                       save_path, target, target_map)
 
 
-    convert_regression_to_classification(data, 'Global_Sales', save_path='../datasets/converted_datasets/video_games_sales_converted_classification.csv')
