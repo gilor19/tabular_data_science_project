@@ -4,7 +4,7 @@ This repository is submitted as the final project in the Tabular Data Science co
 
 We created a model to detecet whether a numerical column in a given tabular dataset is in fact categorical, ordinal or nominal, within a prediction task.
 
-Our main code is in the main.py file, it requires a dataset path, the target column name as string and whther the prediction is a regression task (classification is default).
+Our main code is in the main.py file, it requires a dataset path, the target column name as string and whether the prediction is a regression task (classification is default).
 
 An example run is in the example.ipynb.
 
