@@ -130,12 +130,3 @@ def avg_spearmanr_for_two_dist_matrices(original_space_dist_matrix, embedding_sp
     return spermanr_sums / n
 
 
-def load_existing_embeddings_for_dev(emb_path, label_dict_path):
-    with open(emb_path, 'rb') as handle:
-        embeddings = pickle.load(handle)
-
-    with open(label_dict_path, 'rb') as handle:
-        label_dict = pickle.load(handle)
-
-    return embeddings, label_dict
-
