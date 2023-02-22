@@ -1,6 +1,6 @@
 # A numerical in a haystack: Detecting false numerical columns
 #### Dani Bekman and Gil Or
-This repository is submited as the final project in the Tabular Data Science course by Dr. Amit Somech at Bar Ilan University.
+This repository is submitted as the final project in the Tabular Data Science course by Dr. Amit Somech at Bar Ilan University.
 
 We created a model to detecet whether a numerical column in a given tabular dataset is in fact categorical, ordinal or nominal, within a prediction task.
 
