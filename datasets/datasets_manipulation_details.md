@@ -3,7 +3,7 @@
 In this file we will explain the manipulations we applied on the datasets in order to make them suitable for testing our solution. The manipulations are implemented in the edit_dataset.py code file.
 
 The main idea was to convert a known categorical columns, nominal and ordinal, into a numeric colmuns that we could test.
-The nominal categorical columns were mapped randomly to integer values, whereas the ordinal categorical columns were mapped by a predifened order to integer values.
+The nominal categorical columns were mapped randomly to integer values, whereas the ordinal categorical columns were mapped by a pre-defined order to integer values.
 
 
 ### 1. Adult Dataset:
