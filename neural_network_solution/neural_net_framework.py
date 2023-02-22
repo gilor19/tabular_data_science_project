@@ -1,4 +1,3 @@
-import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from keras.models import Model
@@ -50,15 +49,8 @@ def preprocess(df, nunique_th, target_col_name):
     columns_to_keep = df.columns[df.isna().mean() < 0.8]
     df = df[columns_to_keep]
 
-
     # find columns to be tested
     columns_to_check = find_columns_to_check(df, target_col_name, nunique_th)[:]
-
-    # for col in columns_to_check:
-    #     if check_high_percentage_of_category(df, col, threshold=0.7):
-    #         columns_to_check = columns_to_check.drop(col)
-    #
-    #         print("{} column was dropped due to values imbalance".format(col))
 
     # drop rows with any null value
     df = df.dropna(subset=columns_to_check)
@@ -147,28 +139,3 @@ def load_existing_embeddings_for_dev(emb_path, label_dict_path):
 
     return embeddings, label_dict
 
-
-def main(dataset_path, target_col, nunique_th, corr_th):
-    data = pd.read_csv(dataset_path)
-    x_train, y_train, columns_to_check, label_dict = preprocess(data, nunique_th, target_col)
-    print(str(columns_to_check.values) + " have less than " + str(nunique_th) + " unique INT values, therefore they will be checked.")
-    print("Training embedding model start.")
-    model = build_model(x_train, columns_to_check)
-    train_model(model, x_train, y_train, columns_to_check)
-    embeddings = get_embeddings(model, columns_to_check)
-    print("Training embedding model end.")
-
-    for c in columns_to_check:
-        orig_dist_matrix = create_original_space_dist_matrix(label_dict[c])
-        embedd_dist_matrix = create_embedding_space_dist_matrix(embeddings[c])
-        score = avg_spearmanr_for_two_dist_matrices(orig_dist_matrix, embedd_dist_matrix)
-        print("\nFor the '{}' column, Spearman correlation score of the original values space and the embedding space is {}.".format(c,score))
-        if score > corr_th:
-            print("This means '{}' column is ordinal, you should use the original values or mapping.".format(c))
-        else:
-            print("This means '{}' column is nominal, you should use one hot encoding.".format(c))
-
-
-if __name__ == "__main__":
-    main('../datasets/converted_datasets/video_games_sales_converted_classification.csv', 'Global_Sales', 50, 0.4)
-    print("")
