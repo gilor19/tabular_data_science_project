@@ -156,37 +156,29 @@ def avg_spearmanr_for_two_dist_matrices(original_space_dist_matrix, embedding_sp
     return spermanr_sums / n
 
 
-def load_existing_embeddings_for_dev(emb_path, label_dict_path):
-    with open(emb_path, 'rb') as handle:
-        embeddings = pickle.load(handle)
-
-    with open(label_dict_path, 'rb') as handle:
-        label_dict = pickle.load(handle)
-
-    return embeddings, label_dict
-
-
 def main(dataset_path, target_col, nunique_th=50, corr_th=0.4):
     data = pd.read_csv(dataset_path)
     x_train, y_train, columns_to_check, label_dict = preprocess(data, nunique_th, target_col)
-    print(str(columns_to_check.values) + " have less than " + str(nunique_th) + " unique INT values, therefore they will be checked.")
-    print("Training embedding model start.")
+    print("The following columns have less than " + str(nunique_th) + " unique INT values, therefore they will be checked:")
+    for c in columns_to_check:
+        print(c)
+    print("\nTraining embedding model start.\n")
     model = build_regression_model2(x_train, columns_to_check)
     train_regression_model(model, x_train, y_train, columns_to_check)
     embeddings = get_embeddings(model, columns_to_check)
-    print("Training embedding model end.")
+    print("\nTraining embedding model end.\n")
 
     for c in columns_to_check:
         orig_dist_matrix = create_original_space_dist_matrix(label_dict[c])
         embedd_dist_matrix = create_embedding_space_dist_matrix(embeddings[c])
-        score = avg_spearmanr_for_two_dist_matrices(orig_dist_matrix, embedd_dist_matrix)
-        print("\nFor the '{}' column, Spearman correlation score of the original values space and the embedding space is {}.".format(c,score))
+        score = round(avg_spearmanr_for_two_dist_matrices(orig_dist_matrix, embedd_dist_matrix), 2)
+        print("\n'{}': Spearman correlation score of the original values space and the embedding space is {}.".format(c,score))
         if score > corr_th:
-            print("This means '{}' column is ordinal, you should use the original values or mapping.".format(c))
+            print("This means '{}' column is ordinal, you should use the original values as mapping.".format(c))
         else:
             print("This means '{}' column is nominal, you should use one hot encoding.".format(c))
 
 
 if __name__ == "__main__":
-    main('/datasets/converted_datasets/video_games_sales_converted.csv', 'Global_Sales')
-    print("")
+    main('../../../datasets/converted_datasets/video_games_sales_converted.csv', 'Global_Sales')
+
