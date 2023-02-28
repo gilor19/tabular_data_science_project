@@ -173,7 +173,7 @@ def main(dataset_path, target_col, nunique_th=50, corr_th=0.4):
         embedd_dist_matrix = create_embedding_space_dist_matrix(embeddings[c])
         score = round(avg_spearmanr_for_two_dist_matrices(orig_dist_matrix, embedd_dist_matrix), 2)
         print("\n'{}': Spearman correlation score of the original values space and the embedding space is {}.".format(c,score))
-        if score > corr_th:
+        if abs(score) > corr_th:
             print("This means '{}' column is ordinal, you should use the original values as mapping.".format(c))
         else:
             print("This means '{}' column is nominal, you should use one hot encoding.".format(c))
